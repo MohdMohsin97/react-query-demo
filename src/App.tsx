@@ -1,35 +1,69 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// https://jsonplaceholder.typicode.com/todos
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+type PostType = {
+  userId: number;
+  id: number;
+  title: string;
+  body: string;
+};
 
 function App() {
-  const [count, setCount] = useState(0)
+  const queryClient = useQueryClient();
+
+  const { data, error, isLoading } = useQuery<PostType[]>({
+    queryKey: ["posts"],
+    queryFn: () =>
+      fetch("https://jsonplaceholder.typicode.com/posts").then((res) =>
+        res.json()
+      ),
+      // staleTime: 6*1000
+      // refetchInterval: 2*1000
+  });
+
+  const { mutate, isPending, isError, isSuccess } = useMutation({
+    mutationFn: (newPost: PostType) =>
+      fetch("https://jsonplaceholder.typicode.com/posts", {
+        method: "POST",
+        body: JSON.stringify(newPost),
+        headers: { "Content-type": "application/json; charset=UTF-8" },
+      }).then((res) => res.json()),
+    onSuccess: (newPost) => {
+      queryClient.setQueryData(["posts"], (oldPosts: PostType[]) => [...oldPosts, newPost]);
+    },
+  });
+
+  if (error || isError) return <>There was an error</>;
+
+  if (isLoading) return <>Data is Loading</>;
 
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div>
+      {isPending && <p>The is pending </p>}
+
+      <button
+        onClick={() =>
+          mutate({
+            userId: 5000,
+            id: 5000,
+            title: "I'm the Title",
+            body: "I'm the Body",
+          })
+        }
+      >
+        Add Post
+      </button>
+
+      {data?.map((todo) => (
+        <div key={todo.id}>
+          <h1 className="text-3xl font-bold underline">{todo.id}</h1>
+          <h1 className="text-3xl font-bold underline">{todo.title}</h1>
+          <p className="text-xl">{todo.body}</p>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-export default App
+export default App;
